@@ -186,12 +186,39 @@ def clean_and_label(df):
         .withColumn("reporting_date", F.to_date("monthly_reporting_period", "MMyyyy"))
         .withColumn("origination_dt", F.to_date("origination_date", "MMyyyy"))
         .withColumn("first_payment_dt", F.to_date("first_payment_date", "MMyyyy"))
-        .withColumn("maturity_dt", F.to_date("maturity_date", "MMyyyy"))
         .withColumn(
             "zbc_effective_dt",
             F.when(
                 F.col("zero_balance_effective_date").isNotNull(),
                 F.to_date("zero_balance_effective_date", "MMyyyy")
+            )
+        )
+
+        .withColumn(
+            "maturity_dt",
+            F.when(
+                F.col("maturity_date").isNull(),
+                F.when(
+                    F.col("first_payment_dt").isNotNull() &
+                    F.col("orig_loan_term").isNotNull(),
+                    F.add_months(
+                        F.col("first_payment_dt"),
+                        F.col("orig_loan_term") - 1
+                    )
+                )
+            ).otherwise(
+                F.to_date("maturity_date", "MMyyyy")
+            )
+        )
+
+        .withColumn(
+            "loan_age",
+            F.coalesce(
+                F.col("loan_age"),
+                F.when(
+                    F.col("first_payment_dt").isNotNull() & F.col("reporting_date").isNotNull(),
+                    F.floor(F.months_between(F.col("reporting_date"), F.col("first_payment_dt"))) + 1
+                ).cast("int")
             )
         )
 
@@ -336,6 +363,12 @@ def clean_and_label(df):
         )
     )
 
+    df = df.drop(
+        "seller_name",
+        "servicer_name",
+        "master_servicer"
+    )
+
     log.info("Clean rows: {:,}".format(df.count()))
     return df
 
@@ -359,7 +392,7 @@ def save(df, path: str):
 
 def main(data_path, out_path):
     spark = create_spark()
-    raw     = load_raw(spark, data_path)
+    raw = load_raw(spark, data_path)
     cleaned = clean_and_label(raw)
     save(cleaned, out_path + "/panel")
     abt = build_abt(cleaned)
@@ -367,12 +400,14 @@ def main(data_path, out_path):
     cleaned.groupBy("zero_balance_code").count().orderBy("zero_balance_code").show()
     spark.stop()
 
+
 DEFAULT_RAW = "D:/HSE/Diplom/raw_data"
 DEFAULT_OUT = "D:/HSE/Diplom/processed_data"
+#  C:\Users\paine\.conda\envs\thesis\python.exe data_preprocessing.py --data_path D:/HSE/Diplom/raw_data --out_path D:/HSE/Diplom/processed_data
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--data_path", required=True, default=DEFAULT_RAW)
-    p.add_argument("--out_path",  required=True, default=DEFAULT_OUT)
+    p.add_argument("--data_path", default=DEFAULT_RAW)
+    p.add_argument("--out_path",  default=DEFAULT_OUT)
     args = p.parse_args()
     main(args.data_path, args.out_path)
