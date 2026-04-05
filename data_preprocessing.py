@@ -222,6 +222,22 @@ def clean_and_label(df):
             )
         )
 
+        .withColumn(
+            "current_actual_upb",
+            F.greatest(
+                F.coalesce(F.col("current_actual_upb"), F.lit(0.0)),
+                F.coalesce(F.col("upb_at_removal"), F.lit(0.0))
+            )
+        )
+
+        .withColumn(
+            "current_actual_upb",
+            F.when(
+                F.col("current_actual_upb") <= 0,
+                F.col("orig_upb")
+            ).otherwise(F.col("current_actual_upb"))
+        )
+
         # Винтажи
         .withColumn("vintage_year", F.year("origination_dt"))
         .withColumn(
@@ -366,7 +382,51 @@ def clean_and_label(df):
     df = df.drop(
         "seller_name",
         "servicer_name",
-        "master_servicer"
+        "master_servicer",
+        "upb_at_issuance",
+        "months_to_amortization",
+        "io_first_pi_date",
+        "arm_init_fixed_le5y",
+        "arm_product_type",
+        "initial_fixed_rate_period",
+        "interest_rate_adj_freq",
+        "next_rate_adj_date",
+        "next_payment_change_date",
+        "index",
+        "arm_cap_structure",
+        "init_rate_cap_up",
+        "periodic_rate_cap_up",
+        "lifetime_rate_cap_up",
+        "mortgage_margin",
+        "arm_balloon",
+        "arm_plan_number",
+        "deal_name",
+        "current_period_mod_loss",
+        "cumulative_mod_loss",
+        "current_period_credit_event_net",
+        "cumulative_credit_event_net",
+        "orig_list_start_date",
+        "orig_list_price",
+        "current_list_start_date",
+        "current_list_price",
+        "borrower_credit_score_issuance",
+        "coborrower_credit_score_issuance",
+        "borrower_credit_score_current",
+        "coborrower_credit_score_current"
+    )
+
+    w_rate = (
+        Window.partitionBy("loan_id")
+        .orderBy("reporting_date")
+        .rowsBetween(Window.unboundedPreceding, Window.currentRow)
+    )
+
+    df = df.withColumn(
+        "current_interest_rate",
+        F.coalesce(
+            F.last("current_interest_rate", ignorenulls=True).over(w_rate),
+            F.col("orig_interest_rate")
+        )
     )
 
     log.info("Clean rows: {:,}".format(df.count()))
