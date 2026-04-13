@@ -129,6 +129,12 @@ FANNIE_SCHEMA = StructType([
     StructField("current_classic_fico", IntegerType(), True),
 ])
 
+_JUDICIAL_STATES = [
+    "CT", "DE", "FL", "HI", "IL", "IN", "IA", "KS", "KY", "LA",
+    "ME", "MD", "MA", "MN", "MO", "MT", "NE", "NJ", "NM", "NY",
+    "ND", "OH", "OK", "PA", "RI", "SC", "SD", "VT", "WI",
+]
+
 # ===========================================================================
 # SPARK SESSION
 # ===========================================================================
@@ -153,6 +159,32 @@ def create_spark(app: str = "FannieMae_CPR",
         .getOrCreate()
     )
 
+
+def create_spark_server(app: str = "FannieMae_CPR") -> SparkSession:
+
+    return (
+        SparkSession.builder.appName(app)
+        .config("spark.driver.memory",                         "24g")
+        .config("spark.driver.cores",                          "4")
+        .config("spark.executor.instances",                    "2")
+        .config("spark.executor.cores",                        "10")
+        .config("spark.executor.memory",                       "38g")
+        .config("spark.executor.memoryOverhead",               "4g")
+        .config("spark.serializer",
+                "org.apache.spark.serializer.KryoSerializer")
+        .config("spark.kryoserializer.buffer.max",             "512m")
+        .config("spark.sql.adaptive.enabled",                  "true")
+        .config("spark.sql.adaptive.coalescePartitions.enabled","true")
+        .config("spark.sql.adaptive.skewJoin.enabled",         "true")
+        .config("spark.sql.shuffle.partitions",                "200")
+        .config("spark.sql.autoBroadcastJoinThreshold",        "200m")
+        .config("spark.sql.parquet.filterPushdown",            "true")
+        .config("spark.memory.offHeap.enabled",                "true")
+        .config("spark.memory.offHeap.size",                   "4g")
+        .getOrCreate()
+    )
+
+
 # ===========================================================================
 # LOAD CSV
 # ===========================================================================
@@ -171,7 +203,7 @@ def load_raw(spark, path: str):
 # ===========================================================================
 
 def clean_and_label(df):
-    # Просто лучший FICO
+    # Best available FICO
     df = df.withColumn(
         "fico",
         F.coalesce(
@@ -193,7 +225,6 @@ def clean_and_label(df):
                 F.to_date("zero_balance_effective_date", "MMyyyy")
             )
         )
-
         .withColumn(
             "maturity_dt",
             F.when(
@@ -210,7 +241,6 @@ def clean_and_label(df):
                 F.to_date("maturity_date", "MMyyyy")
             )
         )
-
         .withColumn(
             "loan_age",
             F.coalesce(
@@ -221,7 +251,6 @@ def clean_and_label(df):
                 ).cast("int")
             )
         )
-
         .withColumn(
             "current_actual_upb",
             F.greatest(
@@ -229,7 +258,6 @@ def clean_and_label(df):
                 F.coalesce(F.col("upb_at_removal"), F.lit(0.0))
             )
         )
-
         .withColumn(
             "current_actual_upb",
             F.when(
@@ -238,7 +266,7 @@ def clean_and_label(df):
             ).otherwise(F.col("current_actual_upb"))
         )
 
-        # Винтажи
+        # Vintages
         .withColumn("vintage_year", F.year("origination_dt"))
         .withColumn(
             "vintage_quarter",
@@ -249,7 +277,7 @@ def clean_and_label(df):
             )
         )
 
-        # Только fixed rate
+        # Fixed-rate mortgages only
         .filter(F.col("amortization_type") == "FRM")
         .filter(F.col("orig_loan_term").isin(180, 360))
         .filter(F.col("fico").isNotNull() & F.col("fico").between(300, 850))
@@ -259,7 +287,7 @@ def clean_and_label(df):
         .filter(F.col("orig_upb") > 0)
         .filter(F.col("loan_age") >= 0)
 
-        # Prepay marking
+        # Outcome labels
         .withColumn("prepaid", (F.col("zero_balance_code") == "01").cast("int"))
         .withColumn(
             "default",
@@ -275,7 +303,7 @@ def clean_and_label(df):
         )
         .withColumn("active", F.col("zero_balance_code").isNull().cast("int"))
 
-        # FICO int -> segment
+        # FICO tier
         .withColumn(
             "fico_bucket",
             F.when(F.col("fico") < 620, "SubPrime")
@@ -284,7 +312,7 @@ def clean_and_label(df):
              .otherwise("SuperPrime")
         )
 
-        # High LTV
+        # Binary structural flags
         .withColumn("high_ltv", (F.col("orig_ltv") > 80).cast("int"))
         .withColumn("term_15y", (F.col("orig_loan_term") <= 180).cast("int"))
         .withColumn(
@@ -308,6 +336,8 @@ def clean_and_label(df):
              .cast("int")
         )
         .withColumn("has_deferral", (F.col("total_deferral_amount") > 0).cast("int"))
+
+        # Spread / equity / burnout
         .withColumn(
             "rate_spread",
             F.col("orig_interest_rate") - F.col("current_interest_rate")
@@ -330,7 +360,7 @@ def clean_and_label(df):
              .otherwise("120m+")
         )
 
-        # Payment history score
+        # Payment history features
         .withColumn(
             "ph_delinq_count",
             F.when(
@@ -357,6 +387,7 @@ def clean_and_label(df):
             ).otherwise(0)
         )
 
+        # Amortisation progress
         .withColumn(
             "upb_fraction",
             F.when(
@@ -364,7 +395,6 @@ def clean_and_label(df):
                 F.col("current_actual_upb") / F.col("orig_upb")
             )
         )
-        # Excess principal for current month
         .withColumn(
             "excess_principal",
             F.greatest(
@@ -372,10 +402,27 @@ def clean_and_label(df):
                 F.lit(0.0)
             )
         )
-        # standard burnout
         .withColumn(
             "burnout",
             F.col("loan_age") * F.greatest(F.col("rate_spread"), F.lit(0.0))
+        )
+
+        # Calendar month
+        .withColumn("month_of_year", F.month("reporting_date").cast("string"))
+
+        # Judicial foreclosure state
+        .withColumn(
+            "is_judicial_state",
+            F.when(
+                F.col("property_state").isin(_JUDICIAL_STATES),
+                1
+            ).otherwise(0)
+        )
+
+        # HARP loans or High-LTV Refi Option
+        .withColumn(
+            "is_hltv_refi",
+            F.when(F.col("hltv_refi_option") == "Y", 1).otherwise(0)
         )
     )
 
@@ -445,7 +492,7 @@ def build_abt(df):
 def save(df, path: str):
     log.info("Writing Parquet → %s", path)
     (df.write.mode("overwrite")
-       .option("compression","snappy")
+       .option("compression", "snappy")
        .parquet(path))
     log.info("Done.")
 
