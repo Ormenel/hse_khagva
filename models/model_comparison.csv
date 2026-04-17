@@ -1,0 +1,6 @@
+Model,AUC-ROC,PR-AUC,Brier
+XGBoost,0.7225,0.0446,0.19972
+LightGBM,0.7221,0.045,0.20204
+Random Forest,0.7117,0.0496,0.20538
+Logistic Regression,0.694,0.0314,0.21194
+SGD Classifier,0.692,0.0307,0.21161
