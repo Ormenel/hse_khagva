@@ -1,0 +1,10 @@
+.git
+.claude
+.gitignore
+*.md
+LICENSE
+eda/
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache

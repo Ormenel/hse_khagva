@@ -1,5 +1,6 @@
+
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List
 
 
 class YieldCurveInput(BaseModel):
@@ -9,7 +10,7 @@ class YieldCurveInput(BaseModel):
     )
     rates: List[float] = Field(
         default=[0.045, 0.046, 0.047, 0.048, 0.048, 0.047, 0.046, 0.045, 0.043, 0.042],
-        description="Continuously-compounded zero rates (decimal, e.g. 0.05 = 5%)",
+        description="Continuously-compounded zero rates",
     )
 
 
@@ -21,12 +22,12 @@ class LoanInput(BaseModel):
     )
     orig_term: int = Field(
         default=360,
-        description="Original term in months (180 or 360)",
+        description="Original term in months",
         ge=12, le=600,
     )
     orig_balance: float = Field(
         default=300_000.0,
-        description="Original UPB ($)",
+        description="Original UPB",
         ge=1_000,
     )
     loan_age: int = Field(
@@ -34,62 +35,24 @@ class LoanInput(BaseModel):
         description="Current loan age in months",
         ge=0,
     )
-    current_balance: Optional[float] = Field(
+    current_balance: float | None = Field(
         default=None,
-        description="Current UPB ($); defaults to orig_balance if omitted",
+        description="Current UPB (defaults to orig_balance)",
     )
 
 
-class HullWhiteInput(BaseModel):
-    a: float = Field(
-        default=0.1,
-        description="Mean-reversion speed (typical: 0.01 – 0.5)",
-        ge=0.001, le=2.0,
-    )
-    sigma: float = Field(
-        default=0.01,
-        description="Short-rate volatility (typical: 0.005 – 0.03)",
-        ge=0.0001, le=0.10,
-    )
+AVAILABLE_MODELS = ["xgb", "lgb", "rf", "lr", "sgd", "stacking", "calibrated"]
 
 
-class PrepaymentInput(BaseModel):
-    psa_speed: float = Field(
-        default=150.0,
-        description="PSA speed (100 = standard benchmark)",
-        ge=0, le=1000,
-    )
-    refi_sensitivity: float = Field(
-        default=5.0,
-        description="Multiplier on refinancing incentive for rate-sensitive SMM",
-        ge=0, le=50,
-    )
-    risk_premium: float = Field(
-        default=0.02,
-        description="Spread above short rate before refi incentive kicks in (decimal)",
-        ge=0, le=0.10,
-    )
-    use_rate_model: bool = Field(
-        default=True,
-        description="Apply rate-sensitive prepayment adjustment on top of PSA",
-    )
+class LoanFeaturesInput(BaseModel):
 
-
-class MLPrepaymentInput(BaseModel):
-    model_dir: str = Field(
-        description="Path to saved_models/ directory with preprocessor.pkl and model pickles",
-    )
-    model_name: str = Field(
-        default="xgb",
-        description="Model to load: lr, rf, gbt, xgb, lgb, stacking, calibrated",
-    )
     fico: float = Field(default=700.0, description="Borrower FICO score", ge=300, le=850)
     orig_ltv: float = Field(default=80.0, description="Original LTV (%)", ge=1, le=200)
     dti: float = Field(default=35.0, description="Debt-to-income ratio (%)", ge=0, le=100)
-    channel: str = Field(default="R", description="Origination channel: R(etail), B(roker), C(orrespondent)")
-    loan_purpose: str = Field(default="P", description="P(urchase), C(ash-out refi), R(efi), U(nknown)")
+    channel: str = Field(default="R", description="Origination channel: R=Retail, B=Broker, C=Correspondent")
+    loan_purpose: str = Field(default="P", description="P=Purchase, C=Cash-out, R=Refi, U=Unknown")
     property_type: str = Field(default="SF", description="SF, CO, PU, MH, CP")
-    occupancy_status: str = Field(default="P", description="P(rimary), S(econd), I(nvestor)")
+    occupancy_status: str = Field(default="P", description="P=Primary, S=Second, I=Investor")
     property_state: str = Field(default="CA", description="US state code")
     origination_year: int = Field(default=2020, description="Year loan was originated")
     first_time_buyer: int = Field(default=0, description="1 if first-time buyer", ge=0, le=1)
@@ -105,14 +68,14 @@ class MLPrepaymentInput(BaseModel):
 
 
 class OASRequest(BaseModel):
+
     loan: LoanInput = Field(default_factory=LoanInput)
-    hull_white: HullWhiteInput = Field(default_factory=HullWhiteInput)
-    prepayment: PrepaymentInput = Field(default_factory=PrepaymentInput)
-    ml_prepayment: Optional[MLPrepaymentInput] = Field(
-        default=None,
-        description="If provided, use sklearn ML model instead of PSA for prepayment",
-    )
+    loan_features: LoanFeaturesInput = Field(default_factory=LoanFeaturesInput)
     yield_curve: YieldCurveInput = Field(default_factory=YieldCurveInput)
+    model_name: str = Field(
+        default="xgb",
+        description=f"Prepayment model to use. One of: {AVAILABLE_MODELS}",
+    )
     market_price: float = Field(
         default=100.0,
         description="Clean market price per $100 of face",
@@ -127,6 +90,7 @@ class OASRequest(BaseModel):
 
 
 class OASResponse(BaseModel):
+
     oas_bps: float = Field(description="Option-Adjusted Spread in basis points")
     model_price: float = Field(description="Model-implied price at solved OAS")
     market_price: float = Field(description="Target market price")
@@ -135,3 +99,23 @@ class OASResponse(BaseModel):
     avg_cpr: float = Field(description="Annualised CPR = 1 - (1-SMM)^12")
     n_paths: int = Field(description="Monte Carlo paths used")
     converged: bool = Field(description="Solver converged within tolerance")
+    path_times: List[float] = Field(
+        default_factory=list,
+        description="Time grid (years) for sampled rate paths",
+    )
+    rate_paths: List[List[float]] = Field(
+        default_factory=list,
+        description="Subset of simulated Hull-White short-rate paths (decimal).",
+    )
+    rate_mean: List[float] = Field(
+        default_factory=list,
+        description="Mean short rate across ALL simulated paths, per month (decimal).",
+    )
+    rate_p05: List[float] = Field(
+        default_factory=list,
+        description="5th-percentile short rate across ALL paths, per month.",
+    )
+    rate_p95: List[float] = Field(
+        default_factory=list,
+        description="95th-percentile short rate across ALL paths, per month.",
+    )
