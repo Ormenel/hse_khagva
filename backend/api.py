@@ -98,36 +98,37 @@ def defaults():
 
 
 @app.post("/oas/compute", response_model=OASResponse)
-def compute(request):
+def compute(req: OASRequest):
+
     try:
-        inference = _inference_registry.get(request.model_name)
+        inference = _inference_registry.get(req.model_name)
         if inference is None:
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Model '{request.model_name}' is not loaded. "
+                    f"Model '{req.model_name}' is not loaded. "
                     f"Available: {sorted(_inference_registry.keys())}"
                 ),
             )
 
         loan = LoanParams(
-            coupon=request.loan.coupon,
-            orig_term=request.loan.orig_term,
-            orig_balance=request.loan.orig_balance,
-            loan_age=request.loan.loan_age,
-            current_balance=(request.loan.current_balance
-                             if request.loan.current_balance
-                             else request.loan.orig_balance),
+            coupon=req.loan.coupon,
+            orig_term=req.loan.orig_term,
+            orig_balance=req.loan.orig_balance,
+            loan_age=req.loan.loan_age,
+            current_balance=(req.loan.current_balance
+                             if req.loan.current_balance
+                             else req.loan.orig_balance),
             )
 
         hw = HullWhiteParams(a=HW_A, sigma=HW_SIGMA)
 
         curve = YieldCurve(
-            tenors=np.array(request.yield_curve.tenors),
-            rates=np.array(request.yield_curve.rates),
+            tenors=np.array(req.yield_curve.tenors),
+            rates=np.array(req.yield_curve.rates),
         )
 
-        lf = request.loan_features
+        lf = req.loan_features
         loan_ml_params = {
             "fico": lf.fico,
             "orig_interest_rate": loan.coupon,
@@ -159,11 +160,11 @@ def compute(request):
             loan=loan, inference=inference,
             loan_ml_params=loan_ml_params,
             curve=curve, hw_params=hw,
-            market_price=request.market_price,
-            n_paths=request.n_paths, seed=request.seed,
+            market_price=req.market_price,
+            n_paths=req.n_paths, seed=req.seed,
         )
         log.info("OAS (%s) computed: %.1f bp  (price=%.2f, WAL=%.1fy, CPR=%.2f%%)",
-                 request.model_name, result.oas_bps, result.model_price,
+                 req.model_name, result.oas_bps, result.model_price,
                  result.avg_life, result.avg_cpr * 100)
 
         return OASResponse(
