@@ -125,7 +125,7 @@ def main():
 
         st.header("Loan / MBS")
         coupon = st.slider("Coupon Rate (%)", 1.0, 15.0, 6.5, 0.125) / 100
-        orig_term = st.selectbox("Original Term (months)", [180, 360], index=1)
+        orig_term = st.selectbox("Original Term (months)", [120, 180, 240, 300, 360], index=1)
         orig_balance = st.number_input("Original Balance ($)", 10_000, 5_000_000,
                                        300_000, step=10_000)
         loan_age = st.slider("Loan Age (months)", 0, orig_term - 1, 0)
