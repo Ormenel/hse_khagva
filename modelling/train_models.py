@@ -198,6 +198,10 @@ def load_panel_spark(
     # Additional derived features
     df = (df
         .withColumn("spread_pos", F.greatest(F.col("rate_spread_to_10y"), F.lit(0.0)))
+        .withColumn("logit_rate_spread_to_10y",
+                  F.when(F.col("rate_spread_to_10y").isNotNull(),
+                         F.lit(1.0) / (F.lit(1.0) + F.exp(-F.col("rate_spread_to_10y"))))
+                  .otherwise(F.lit(None).cast("double")))
         .withColumn("age_sq", F.col("loan_age") * F.col("loan_age") / F.lit(100.0))
         .withColumn("rate_duration",
             F.when(F.col("remaining_months_to_mat").isNotNull() &
