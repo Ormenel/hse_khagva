@@ -58,15 +58,15 @@ class PrepaymentModelInference:
 
         # Input from interface
         fico = kwargs.get("fico", 700.0)
-        orig_rate = kwargs.get("orig_interest_rate", 0.065)
-        curr_rate = kwargs.get("current_interest_rate", orig_rate)
+        orig_rate = kwargs.get("orig_interest_rate", 0.065) * 100.0
+        curr_rate = kwargs.get("current_interest_rate", 0.065) * 100.0
         orig_ltv = kwargs.get("orig_ltv", 80.0)
         dti = kwargs.get("dti", 35.0)
         orig_upb = kwargs.get("orig_upb", 300000.0)
         current_upb = kwargs.get("current_upb", orig_upb)
         loan_age = kwargs.get("loan_age", 0)
         orig_loan_term = kwargs.get("orig_loan_term", 360)
-        gs10_rate = kwargs.get("gs10_rate", 0.04)
+        gs10_rate = kwargs.get("gs10_rate", 0.04) * 100.0
         property_state = kwargs.get("property_state", "CA")
 
         # Derived features
@@ -204,9 +204,9 @@ class PrepaymentModelInference:
             if balance <= 0.01:
                 break
 
+            # обновляем переменные которые меняются со временем
             params["loan_age"] = base_age + m
-            params["rate_spread_to_10y"] = coupon - rate_path[m]
-            params["logit_rate_spread_to_10y"] = 1.0 / (1.0 + np.exp(rate_path[m] - coupon))
+            params["current_interest_rate"] = coupon
             params["gs10_rate"] = rate_path[m]
             params["current_upb"] = balance
             params["reporting_month"] = ((base_age + m) % 12) + 1
@@ -260,8 +260,7 @@ def project_cashflows_ml(loan_params: dict,
 
         # обновляем переменные которые меняются со временем
         params["loan_age"] = base_age + m + 1
-        params["rate_spread_to_10y"] = coupon - rate_path[m]
-        params["logit_rate_spread_to_10y"] = 1.0 / (1.0 + np.exp(rate_path[m] - coupon))
+        params["current_interest_rate"] = coupon
         params["gs10_rate"] = rate_path[m]
         params["current_upb"] = balance
         params["reporting_month"] = ((base_age + m) % 12) + 1

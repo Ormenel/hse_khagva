@@ -31,9 +31,9 @@ def _project_cashflows_batched(
     inference,
     loan_ml_params: dict,
     rates: np.ndarray, # (n_paths, n_steps+1)
+    gs10_rates: np.ndarray, # (n_paths, n_steps+1)
     dt: float,
     n_steps: int,
-    gs10_rate: float,
     ) -> dict:
 
     n_paths = rates.shape[0]
@@ -63,15 +63,15 @@ def _project_cashflows_batched(
 
         age_m = base_age + m + 1
         report_month = ((base_age + m) % 12) + 1
-        path_rates_m = rates[:, m + 1]   # rate at end of month m, all paths
+        gs10_m = gs10_rates[:, m + 1]   # rate at end of month m, all paths
 
         safe_balance = np.where(active, balance, 1.0)
         batch_params = []
         for p in range(n_paths):
             params = dict(base_params)
             params["loan_age"] = age_m
-            params["current_interest_rate"] = float(path_rates_m[p] + 0.02)
-            params["gs10_rate"] = gs10_rate
+#            params["current_interest_rate"] = float(loan.coupon)
+            params["gs10_rate"] = float(gs10_m[p])
             params["current_upb"] = float(safe_balance[p])
             params["reporting_month"] = report_month
             batch_params.append(params)
@@ -143,13 +143,12 @@ def compute_oas_ml(
     dt = T / n_steps
     t_months = np.arange(1, n_steps + 1) * dt
 
-    # 10-y rate from bonds
-    gs10_rate = float(curve.zero_rate(np.array(10.0)))
+    # 10-year zero rate along each path
+    gs10_rates = hw.zero_rate_along_path(rates, T, tau=10.0)
 
     # Cash flow engine
     cf = _project_cashflows_batched(
-        loan, inference, loan_ml_params, rates, dt, n_steps,
-        gs10_rate=gs10_rate)
+        loan, inference, loan_ml_params, rates, gs10_rates, dt, n_steps)
 
     all_cf = cf["total_cf"]
     all_smm = cf["smm"]
