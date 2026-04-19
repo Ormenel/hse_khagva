@@ -50,6 +50,7 @@ NUMERIC_FEATURES = [
     "orig_loan_term", "remaining_months_to_mat", "rate_duration",
     "burnout_x_refi", "fico_x_refi", "ltv_x_refi",
     "ph_delinq_count", "excess_principal", "gs10_monthly",
+    "logit_rate_spread_to_10y",
 ]
 
 CATEGORICAL_FEATURES = [
