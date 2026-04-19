@@ -80,6 +80,7 @@ class PrepaymentModelInference:
         age_sq = loan_age * loan_age / 100.0
         rate_spread = curr_rate - gs10_rate
         spread_pos = max(rate_spread, 0.0)
+        logit_rate_spread = 1.0 / (1.0 + np.exp(-rate_spread))
         rate_duration = curr_rate * remaining / 1200.0 if remaining > 0 else 0.0
 
         # FICO bucket
@@ -133,6 +134,7 @@ class PrepaymentModelInference:
             "ph_delinq_count": float(kwargs.get("ph_delinq_count", 0)),
             "excess_principal": float(kwargs.get("excess_principal", 0.0)),
             "gs10_monthly": gs10_rate,
+            "logit_rate_spread_to_10y": logit_rate_spread,
 
             # Categorical
             "channel": kwargs.get("channel", "R"),
@@ -204,6 +206,7 @@ class PrepaymentModelInference:
 
             params["loan_age"] = base_age + m
             params["rate_spread_to_10y"] = coupon - rate_path[m]
+            params["logit_rate_spread_to_10y"] = 1.0 / (1.0 + np.exp(rate_path[m] - coupon))
             params["gs10_rate"] = rate_path[m]
             params["current_upb"] = balance
             params["reporting_month"] = ((base_age + m) % 12) + 1
@@ -258,6 +261,7 @@ def project_cashflows_ml(loan_params: dict,
         # обновляем переменные которые меняются со временем
         params["loan_age"] = base_age + m + 1
         params["rate_spread_to_10y"] = coupon - rate_path[m]
+        params["logit_rate_spread_to_10y"] = 1.0 / (1.0 + np.exp(rate_path[m] - coupon))
         params["gs10_rate"] = rate_path[m]
         params["current_upb"] = balance
         params["reporting_month"] = ((base_age + m) % 12) + 1
