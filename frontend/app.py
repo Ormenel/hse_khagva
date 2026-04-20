@@ -77,7 +77,7 @@ def _plot_rate_paths(times, paths, mean, p05, p95):
         ))
 
     fig.update_layout(
-        title=f"Hull-White Short-Rate Paths  ({len(paths)} shown)",
+        title=f"Hull-White Short-Rate Paths",
         xaxis_title="Time (years)",
         yaxis_title="Short Rate (%)",
         height=400,
@@ -92,7 +92,7 @@ def _plot_yield_curve(tenors, rates):
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=tenors, y=[r * 100 for r in rates],
-        mode="lines+markers", name="Par Curve",
+        mode="lines+markers", name="Zero Curve",
         line=dict(color="#3498db", width=2),
     ))
     fig.update_layout(
@@ -101,6 +101,26 @@ def _plot_yield_curve(tenors, rates):
         yaxis_title="Par Rate (%)",
         height=300,
         margin=dict(l=40, r=20, t=40, b=40),
+    )
+    return fig
+
+
+def _plot_cpr_curve(cpr_months, cpr_curve):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=cpr_months,
+        y=[v * 100 for v in cpr_curve],
+        mode="lines",
+        name="CPR (avg-path)",
+        line=dict(color="#e74c3c", width=2.5),
+    ))
+    fig.update_layout(
+        title="CPR by Month (Hull-White Average-Rate Path)",
+        xaxis_title="Month",
+        yaxis_title="CPR (%)",
+        height=360,
+        margin=dict(l=40, r=20, t=45, b=40),
+        hovermode="x unified",
     )
     return fig
 
@@ -139,7 +159,7 @@ def main():
 
         st.header("Simulation")
         n_paths = st.select_slider("MC Paths", [100, 200, 500, 1000, 2000, 5000],
-                                   value=500)
+                                   value=100)
         seed = st.number_input("Random Seed", 0, 9999, 42)
 
     # loan features
@@ -180,11 +200,11 @@ def main():
         with col1:
             tenors_str = st.text_input(
                 "Tenors (years, comma-separated)",
-                "0.25, 0.5, 1, 2, 3, 5, 7, 10, 20, 30")
+                "0.5, 1, 2, 3, 5, 7, 10, 20, 30")
         with col2:
             rates_str = st.text_input(
                 "Rates (decimal, comma-separated)",
-                "0.045, 0.046, 0.047, 0.048, 0.048, 0.047, 0.046, 0.045, 0.043, 0.042")
+                "0.0369, 0.0364, 0.0371, 0.0372, 0.0384, 0.0404, 0.0426, 0.0485, 0.0488")
         tenors = [float(x.strip()) for x in tenors_str.split(",")]
         rates = [float(x.strip()) for x in rates_str.split(",")]
 
@@ -236,20 +256,29 @@ def main():
 
         st.success("Computation done")
 
-        r1, r2, r3, r4 = st.columns(4)
+        r1, r2, r3 = st.columns(3)
         r1.metric("OAS", f"{result['oas_bps']:.1f} bp")
-        r2.metric("Model Price", f"${result['model_price']:.2f}")
-        r3.metric("WAL", f"{result['avg_life']:.1f} yrs")
-        r4.metric("CPR", f"{result['avg_cpr'] * 100:.2f}%")
+        r2.metric("OAS expected", f"{result['oas_expected_bps']:.1f} bp")
+        r3.metric("OAS unexpected", f"{result['oas_unexpected_bps']:.1f} bp")
 
-        col_conv, col_smm = st.columns(2)
-        col_conv.metric("Converged", "Yes" if result["converged"] else "No")
-        col_smm.metric("Avg SMM", f"{result['avg_smm'] * 100:.4f}%")
+        r4, r5, r6 = st.columns(3)
+        r4.metric("WAL", f"{result['avg_life']:.1f} yrs")
+        r5.metric("Avg SMM", f"{result['avg_smm'] * 100:.4f}%")
+        r6.metric("CPR", f"{result['avg_cpr'] * 100:.2f}%")
 
         st.subheader("Visualisations")
-        st.plotly_chart(_plot_yield_curve(tenors, rates),
-                        use_container_width=True)
 
+        # CPR chart
+        if result.get("cpr_curve_monthly"):
+            st.plotly_chart(
+                _plot_cpr_curve(
+                    result.get("cpr_months", []),
+                    result.get("cpr_curve_monthly", []),
+                ),
+                use_container_width=True,
+            )
+
+        # Rate paths
         if result.get("rate_paths"):
             st.plotly_chart(
                 _plot_rate_paths(
@@ -261,6 +290,10 @@ def main():
                 ),
                 use_container_width=True,
             )
+
+        # Yield curve chart
+        st.plotly_chart(_plot_yield_curve(tenors, rates),
+                        use_container_width=True)
 
 
 if __name__ == "__main__":
