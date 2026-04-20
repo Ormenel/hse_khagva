@@ -1,11 +1,3 @@
-"""
-Endpoints
-POST/oas/compute – Compute OAS for a single loan / security
-GET /oas/health – Health check
-GET /oas/defaults – Return default parameter values
-GET /oas/models – List available ML prepayment models
-"""
-
 import logging
 import os
 import numpy as np
@@ -123,7 +115,8 @@ def compute(req: OASRequest):
 
         hw = HullWhiteParams(a=HW_A, sigma=HW_SIGMA)
 
-        curve = YieldCurve(
+        # Input rates are PAR yields bootstrapping is inside
+        par_curve = YieldCurve(
             tenors=np.array(req.yield_curve.tenors),
             rates=np.array(req.yield_curve.rates),
         )
@@ -160,7 +153,7 @@ def compute(req: OASRequest):
         result = compute_oas_ml(
             loan=loan, inference=inference,
             loan_ml_params=loan_ml_params,
-            curve=curve, hw_params=hw,
+            par_curve=par_curve, hw_params=hw,
             market_price=req.market_price,
             n_paths=req.n_paths, seed=req.seed,
         )
@@ -170,6 +163,8 @@ def compute(req: OASRequest):
 
         return OASResponse(
             oas_bps=result.oas_bps,
+            oas_expected_bps=result.oas_expected_bps,
+            oas_unexpected_bps=result.oas_unexpected_bps,
             model_price=result.model_price,
             market_price=result.market_price,
             avg_life=result.avg_life,
@@ -182,6 +177,8 @@ def compute(req: OASRequest):
             rate_mean=result.rate_mean or [],
             rate_p05=result.rate_p05 or [],
             rate_p95=result.rate_p95 or [],
+            cpr_months=result.cpr_months or [],
+            cpr_curve_monthly=result.cpr_curve_monthly or [],
         )
 
     except HTTPException:

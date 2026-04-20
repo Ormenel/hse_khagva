@@ -10,7 +10,9 @@ class YieldCurveInput(BaseModel):
     )
     rates: List[float] = Field(
         default=[0.045, 0.046, 0.047, 0.048, 0.048, 0.047, 0.046, 0.045, 0.043, 0.042],
-        description="Par yields (semi-annual coupon), bootstrapped to zero rates server-side",
+        description=("Par yields (semi-annual coupon) on US Treasury "
+                     "constant-maturity tenors; bootstrapped to a zero curve "
+                     "server-side before Hull-White simulation"),
     )
 
 
@@ -92,6 +94,14 @@ class OASRequest(BaseModel):
 class OASResponse(BaseModel):
 
     oas_bps: float = Field(description="Option-Adjusted Spread in basis points")
+    oas_expected_bps: float = Field(
+        description=("Expected OAS component in bp: OAS under "
+                     "Hull-White with zero volatility.")
+    )
+    oas_unexpected_bps: float = Field(
+        description=("Unexpected OAS component in bp: "
+                     "total OAS minus expected component.")
+    )
     model_price: float = Field(description="Model-implied price at solved OAS")
     market_price: float = Field(description="Target market price")
     avg_life: float = Field(description="Weighted-average life in years")
@@ -118,4 +128,13 @@ class OASResponse(BaseModel):
     rate_p95: List[float] = Field(
         default_factory=list,
         description="95th-percentile short rate across ALL paths, per month.",
+    )
+    cpr_months: List[int] = Field(
+        default_factory=list,
+        description="Month index (1..remaining term) for the CPR curve.",
+    )
+    cpr_curve_monthly: List[float] = Field(
+        default_factory=list,
+        description=("Monthly annualized CPR = 1 - (1-SMM_t)^12, computed along "
+                     "the Hull-White average-rate path."),
     )
