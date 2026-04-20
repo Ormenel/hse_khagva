@@ -58,15 +58,15 @@ class PrepaymentModelInference:
 
         # Input from interface
         fico = kwargs.get("fico", 700.0)
-        orig_rate = kwargs.get("orig_interest_rate", 0.065)
-        curr_rate = kwargs.get("current_interest_rate", orig_rate)
+        orig_rate = kwargs.get("orig_interest_rate", 0.065) * 100.0
+        curr_rate = kwargs.get("current_interest_rate", 0.065) * 100.0
         orig_ltv = kwargs.get("orig_ltv", 80.0)
         dti = kwargs.get("dti", 35.0)
         orig_upb = kwargs.get("orig_upb", 300000.0)
         current_upb = kwargs.get("current_upb", orig_upb)
         loan_age = kwargs.get("loan_age", 0)
         orig_loan_term = kwargs.get("orig_loan_term", 360)
-        gs10_rate = kwargs.get("gs10_rate", 0.04)
+        gs10_rate = kwargs.get("gs10_rate", 0.04) * 100.0
         property_state = kwargs.get("property_state", "CA")
 
         # Derived features
@@ -80,6 +80,7 @@ class PrepaymentModelInference:
         age_sq = loan_age * loan_age / 100.0
         rate_spread = curr_rate - gs10_rate
         spread_pos = max(rate_spread, 0.0)
+        logit_rate_spread = 1.0 / (1.0 + np.exp(-rate_spread))
         rate_duration = curr_rate * remaining / 1200.0 if remaining > 0 else 0.0
 
         # FICO bucket
@@ -133,6 +134,7 @@ class PrepaymentModelInference:
             "ph_delinq_count": float(kwargs.get("ph_delinq_count", 0)),
             "excess_principal": float(kwargs.get("excess_principal", 0.0)),
             "gs10_monthly": gs10_rate,
+            "logit_rate_spread_to_10y": logit_rate_spread,
 
             # Categorical
             "channel": kwargs.get("channel", "R"),
@@ -142,7 +144,7 @@ class PrepaymentModelInference:
             "fico_bucket": fico_bucket,
             "seasoning_bucket": seasoning_bucket,
             "month_of_year": str(kwargs.get("reporting_month", 6)),
-            "vintage_year": str(kwargs.get("origination_year", 2020)),
+            "vintage_year":  str(kwargs.get("origination_year", 2014)),
 
             # Binary
             "high_ltv": 1 if orig_ltv > 80 else 0,
@@ -202,8 +204,9 @@ class PrepaymentModelInference:
             if balance <= 0.01:
                 break
 
+            # обновляем переменные которые меняются со временем
             params["loan_age"] = base_age + m
-            params["rate_spread_to_10y"] = coupon - rate_path[m]
+            params["current_interest_rate"] = coupon
             params["gs10_rate"] = rate_path[m]
             params["current_upb"] = balance
             params["reporting_month"] = ((base_age + m) % 12) + 1
@@ -257,7 +260,7 @@ def project_cashflows_ml(loan_params: dict,
 
         # обновляем переменные которые меняются со временем
         params["loan_age"] = base_age + m + 1
-        params["rate_spread_to_10y"] = coupon - rate_path[m]
+        params["current_interest_rate"] = coupon
         params["gs10_rate"] = rate_path[m]
         params["current_upb"] = balance
         params["reporting_month"] = ((base_age + m) % 12) + 1

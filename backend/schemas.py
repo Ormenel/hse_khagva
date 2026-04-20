@@ -10,7 +10,7 @@ class YieldCurveInput(BaseModel):
     )
     rates: List[float] = Field(
         default=[0.045, 0.046, 0.047, 0.048, 0.048, 0.047, 0.046, 0.045, 0.043, 0.042],
-        description="Continuously-compounded zero rates",
+        description="Par yields (semi-annual coupon), bootstrapped to zero rates server-side",
     )
 
 

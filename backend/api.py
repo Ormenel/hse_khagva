@@ -132,6 +132,7 @@ def compute(req: OASRequest):
         loan_ml_params = {
             "fico": lf.fico,
             "orig_interest_rate": loan.coupon,
+            "current_interest_rate": loan.coupon,
             "orig_upb": loan.orig_balance,
             "current_upb": loan.current_balance,
             "loan_age": loan.loan_age,

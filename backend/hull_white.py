@@ -203,6 +203,27 @@ class HullWhiteModel:
     def monthly_discount_factors(self, rates: np.ndarray, T: float) -> np.ndarray:
         return self.discount_factors(rates, T)
 
+    def zero_rate_along_path(self, rates: np.ndarray, T: float,
+                             tau: float = 10.0) -> np.ndarray:
+        n_paths, n_timesteps = rates.shape
+        n_steps = n_timesteps - 1
+        t_grid = np.linspace(0.0, T, n_timesteps)
+
+        a, sigma = self.a, self.sigma
+        B = (1.0 - np.exp(-a * tau)) / a
+
+        P0_t = self.curve.discount(t_grid)
+        P0_tplustau = self.curve.discount(t_grid + tau)
+        f0_t = self.curve.forward_rate(t_grid)
+
+        ln_A = (
+            np.log(P0_tplustau / P0_t)
+            + B * f0_t
+            - (sigma ** 2) / (4.0 * a) * (B ** 2) * (1.0 - np.exp(-2.0 * a * t_grid))
+        )
+
+        return (B * rates - ln_A[np.newaxis, :]) / tau
+
 """
 tenors = np.array([0.5, 1, 2, 3, 5, 7, 10, 20, 30])
 par_rates = np.array([0.043, 0.044, 0.045, 0.046, 0.045, 0.044, 0.043, 0.041, 0.040])

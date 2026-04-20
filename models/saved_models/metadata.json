@@ -25,6 +25,7 @@
     "ph_delinq_count",
     "excess_principal",
     "gs10_monthly",
+    "logit_rate_spread_to_10y",
     "channel_C",
     "channel_R",
     "loan_purpose_P",
@@ -97,7 +98,8 @@
     "ltv_x_refi",
     "ph_delinq_count",
     "excess_principal",
-    "gs10_monthly"
+    "gs10_monthly",
+    "logit_rate_spread_to_10y"
   ],
   "categorical_features": [
     "channel",

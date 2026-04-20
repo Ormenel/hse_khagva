@@ -92,13 +92,13 @@ def _plot_yield_curve(tenors, rates):
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=tenors, y=[r * 100 for r in rates],
-        mode="lines+markers", name="Zero Curve",
+        mode="lines+markers", name="Par Curve",
         line=dict(color="#3498db", width=2),
     ))
     fig.update_layout(
         title="Input Yield Curve",
         xaxis_title="Maturity (years)",
-        yaxis_title="Zero Rate (%)",
+        yaxis_title="Par Rate (%)",
         height=300,
         margin=dict(l=40, r=20, t=40, b=40),
     )
