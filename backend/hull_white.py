@@ -203,26 +203,36 @@ class HullWhiteModel:
     def monthly_discount_factors(self, rates: np.ndarray, T: float) -> np.ndarray:
         return self.discount_factors(rates, T)
 
-    def zero_rate_along_path(self, rates: np.ndarray, T: float,
-                             tau: float = 10.0) -> np.ndarray:
+    def par_yield_along_path(self, rates: np.ndarray, T: float,
+                              tau: float = 10.0,
+                              coupon_freq: int = 2) -> np.ndarray:
+
         n_paths, n_timesteps = rates.shape
-        n_steps = n_timesteps - 1
         t_grid = np.linspace(0.0, T, n_timesteps)
 
         a, sigma = self.a, self.sigma
-        B = (1.0 - np.exp(-a * tau)) / a
+        dt_cpn = 1.0 / coupon_freq
+        n_cpn = int(round(tau * coupon_freq))
+        taus = np.arange(1, n_cpn + 1) * dt_cpn           # (n_cpn,)
 
-        P0_t = self.curve.discount(t_grid)
-        P0_tplustau = self.curve.discount(t_grid + tau)
-        f0_t = self.curve.forward_rate(t_grid)
+        B = (1.0 - np.exp(-a * taus)) / a                 # (n_cpn,)
+        P0_t = self.curve.discount(t_grid)                # (T,)
+        P0_t_tau = self.curve.discount(
+            t_grid[:, None] + taus[None, :])              # (T, n_cpn)
+        f0_t = self.curve.forward_rate(t_grid)            # (T,)
 
         ln_A = (
-            np.log(P0_tplustau / P0_t)
-            + B * f0_t
-            - (sigma ** 2) / (4.0 * a) * (B ** 2) * (1.0 - np.exp(-2.0 * a * t_grid))
-        )
+            np.log(P0_t_tau / P0_t[:, None])
+            + B[None, :] * f0_t[:, None]
+            - (sigma ** 2) / (4.0 * a) * B[None, :] ** 2
+              * (1.0 - np.exp(-2.0 * a * t_grid))[:, None]
+        )                                                 # (T, n_cpn)
 
-        return (B * rates - ln_A[np.newaxis, :]) / tau
+        # Hull-White zero bond: P(t, t+τ) = exp(ln_A − B·r(t))
+        P = np.exp(ln_A[None, :, :] - B[None, None, :] * rates[:, :, None])
+
+        # Par yield:  c = (1 − P_last) / (Δ · Σ P)
+        return (1.0 - P[:, :, -1]) / (dt_cpn * np.sum(P, axis=2))
 
 """
 tenors = np.array([0.5, 1, 2, 3, 5, 7, 10, 20, 30])
