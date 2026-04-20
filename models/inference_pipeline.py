@@ -144,7 +144,7 @@ class PrepaymentModelInference:
             "fico_bucket": fico_bucket,
             "seasoning_bucket": seasoning_bucket,
             "month_of_year": str(kwargs.get("reporting_month", 6)),
-            "vintage_year": 2014,
+            "vintage_year":  str(kwargs.get("origination_year", 2014)),
 
             # Binary
             "high_ltv": 1 if orig_ltv > 80 else 0,

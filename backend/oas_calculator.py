@@ -61,16 +61,16 @@ def _project_cashflows_batched(
         if not np.any(active):
             break
 
-        age_m = base_age + m + 1
+        age_m = base_age + m
         report_month = ((base_age + m) % 12) + 1
-        gs10_m = gs10_rates[:, m + 1]   # rate at end of month m, all paths
+        gs10_m = gs10_rates[:, m]   # rate at end of month m, all paths
 
         safe_balance = np.where(active, balance, 1.0)
         batch_params = []
         for p in range(n_paths):
             params = dict(base_params)
             params["loan_age"] = age_m
-#            params["current_interest_rate"] = float(loan.coupon)
+            params["current_interest_rate"] = float(loan.coupon)
             params["gs10_rate"] = float(gs10_m[p])
             params["current_upb"] = float(safe_balance[p])
             params["reporting_month"] = report_month
