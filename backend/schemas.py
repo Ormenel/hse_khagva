@@ -10,16 +10,14 @@ class YieldCurveInput(BaseModel):
     )
     rates: List[float] = Field(
         default=[0.045, 0.046, 0.047, 0.048, 0.048, 0.047, 0.046, 0.045, 0.043, 0.042],
-        description=("Par yields (semi-annual coupon) on US Treasury "
-                     "constant-maturity tenors; bootstrapped to a zero curve "
-                     "server-side before Hull-White simulation"),
+        description="Par yields on US Treasury",
     )
 
 
 class LoanInput(BaseModel):
     coupon: float = Field(
         default=0.065,
-        description="Annual coupon rate (decimal, e.g. 0.065 = 6.5%)",
+        description="Annual coupon/loan rate",
         ge=0.001, le=0.30,
     )
     orig_term: int = Field(
@@ -39,7 +37,7 @@ class LoanInput(BaseModel):
     )
     current_balance: float | None = Field(
         default=None,
-        description="Current UPB (defaults to orig_balance)",
+        description="Current UPB",
     )
 
 
@@ -48,25 +46,25 @@ AVAILABLE_MODELS = ["xgb", "lgb", "rf", "lr", "sgd", "stacking", "calibrated"]
 
 class LoanFeaturesInput(BaseModel):
 
-    fico: float = Field(default=700.0, description="Borrower FICO score", ge=300, le=850)
-    orig_ltv: float = Field(default=80.0, description="Original LTV (%)", ge=1, le=200)
-    dti: float = Field(default=35.0, description="Debt-to-income ratio (%)", ge=0, le=100)
-    channel: str = Field(default="R", description="Origination channel: R=Retail, B=Broker, C=Correspondent")
+    fico: float = Field(default=700.0, description="FICO score", ge=300, le=850)
+    orig_ltv: float = Field(default=80.0, description="Orig LTV", ge=1, le=200)
+    dti: float = Field(default=35.0, description="Debt-to-income ratio", ge=0, le=100)
+    channel: str = Field(default="R", description="Origination channel")
     loan_purpose: str = Field(default="P", description="P=Purchase, C=Cash-out, R=Refi, U=Unknown")
-    property_type: str = Field(default="SF", description="SF, CO, PU, MH, CP")
+    property_type: str = Field(default="SF", description="SF=Single-Family, CO=Condominium, PU=Urban Dev, MH= Manufactured, CP=Co-operative")
     occupancy_status: str = Field(default="P", description="P=Primary, S=Second, I=Investor")
     property_state: str = Field(default="CA", description="US state code")
-    origination_year: int = Field(default=2020, description="Year loan was originated")
-    first_time_buyer: int = Field(default=0, description="1 if first-time buyer", ge=0, le=1)
-    modified: int = Field(default=0, description="1 if loan was modified", ge=0, le=1)
-    in_forbearance: int = Field(default=0, ge=0, le=1)
-    has_deferral: int = Field(default=0, ge=0, le=1)
-    has_ppm: int = Field(default=0, description="1 if prepayment penalty mortgage", ge=0, le=1)
-    is_io: int = Field(default=0, description="1 if interest-only", ge=0, le=1)
-    is_high_bal: int = Field(default=0, description="1 if high-balance conforming", ge=0, le=1)
-    hltv_refi_option: str = Field(default="N", description="Y/N for high-LTV refi option")
+    origination_year: int = Field(default=2020, description="Origination Year")
+    first_time_buyer: int = Field(default=0, description="First-time buyer", ge=0, le=1)
+    modified: int = Field(default=0, description="Loan was modified", ge=0, le=1)
+    in_forbearance: int = Field(default=0, description="Client in forbearance", ge=0, le=1)
+    has_deferral: int = Field(default=0, description="Client has deferral", ge=0, le=1)
+    has_ppm: int = Field(default=0, description="Has prepayment penalty", ge=0, le=1)
+    is_io: int = Field(default=0, description="Interest only", ge=0, le=1)
+    is_high_bal: int = Field(default=0, description=" IS High balance", ge=0, le=1)
+    hltv_refi_option: str = Field(default="N", description="High LTV refi")
     ph_delinq_count: int = Field(default=0, description="Prior delinquency count", ge=0)
-    excess_principal: float = Field(default=0.0, description="Excess principal payments ($)")
+    excess_principal: float = Field(default=0.0, description="Excess principal payments")
 
 
 class OASRequest(BaseModel):
@@ -80,7 +78,7 @@ class OASRequest(BaseModel):
     )
     market_price: float = Field(
         default=100.0,
-        description="Clean market price per $100 of face",
+        description="Clean market price",
         ge=50.0, le=150.0,
     )
     n_paths: int = Field(
@@ -88,53 +86,42 @@ class OASRequest(BaseModel):
         description="Number of Monte Carlo simulation paths",
         ge=50, le=10_000,
     )
-    seed: int = Field(default=42, description="Random seed for reproducibility")
+    seed: int = Field(default=42, description="Random seed")
 
 
 class OASResponse(BaseModel):
 
-    oas_bps: float = Field(description="Option-Adjusted Spread in basis points")
-    oas_expected_bps: float = Field(
-        description=("Expected OAS component in bp: OAS under "
-                     "Hull-White with zero volatility.")
-    )
-    oas_unexpected_bps: float = Field(
-        description=("Unexpected OAS component in bp: "
-                     "total OAS minus expected component.")
-    )
+    oas_bps: float = Field(description="Option-Adjusted Spread (OAS) in bp")
+    oas_expected_bps: float = Field(description="Expected OAS component in bp")
+    oas_unexpected_bps: float = Field(description="Unexpected OAS component in bp")
     model_price: float = Field(description="Model-implied price at solved OAS")
     market_price: float = Field(description="Target market price")
-    avg_life: float = Field(description="Weighted-average life in years")
-    avg_smm: float = Field(description="Average SMM across all paths")
-    avg_cpr: float = Field(description="Annualised CPR = 1 - (1-SMM)^12")
+    avg_life: float = Field(description="Weighted average life in years")
+    avg_smm: float = Field(description="Weighted average SMM")
+    avg_cpr: float = Field(description="Weighted average CPR")
     n_paths: int = Field(description="Monte Carlo paths used")
-    converged: bool = Field(description="Solver converged within tolerance")
-    path_times: List[float] = Field(
-        default_factory=list,
-        description="Time grid (years) for sampled rate paths",
-    )
+    converged: bool = Field(description="Converged")
+    path_times: List[float] = Field(default_factory=list, description="Time grid")
     rate_paths: List[List[float]] = Field(
         default_factory=list,
-        description="Subset of simulated Hull-White short-rate paths (decimal).",
-    )
+        description="Rate paths for chart",)
     rate_mean: List[float] = Field(
         default_factory=list,
-        description="Mean short rate across ALL simulated paths, per month (decimal).",
+        description="Rate mean for chart",
     )
     rate_p05: List[float] = Field(
         default_factory=list,
-        description="5th-percentile short rate across ALL paths, per month.",
+        description="Rate percentile for chart",
     )
     rate_p95: List[float] = Field(
         default_factory=list,
-        description="95th-percentile short rate across ALL paths, per month.",
+        description="Rate percentile for chart",
     )
     cpr_months: List[int] = Field(
         default_factory=list,
-        description="Month index (1..remaining term) for the CPR curve.",
+        description="CPR for chart",
     )
     cpr_curve_monthly: List[float] = Field(
         default_factory=list,
-        description=("Monthly annualized CPR = 1 - (1-SMM_t)^12, computed along "
-                     "the Hull-White average-rate path."),
+        description="CPR for chart",
     )
