@@ -167,11 +167,11 @@ def main():
         c1, c2, c3 = st.columns(3)
         with c1:
             fico = st.slider("FICO", 300, 850, 700, 5)
-            orig_ltv = st.slider("Original LTV (%)", 1, 200, 80, 1)
-            dti = st.slider("DTI (%)", 0, 100, 35, 1)
+            orig_ltv = st.slider("LTV (%)", 1, 200, 80, 1)
+            dti = st.slider("Debt-to-income ratio (%)", 0, 100, 35, 1)
             origination_year = st.number_input("Origination Year", 1990, 2030, 2020, 1)
             ph_delinq_count = st.number_input("Prior Delinquency Count", 0, 50, 0, 1)
-            excess_principal = st.number_input("Excess Principal ($)", 0.0, 1e6, 0.0, 1000.0)
+            excess_principal = st.number_input("Excess Principal", 0.0, 1e6, 0.0, 1000.0)
         with c2:
             channel = st.selectbox("Channel", ["R", "B", "C"], index=0,
                                    help="R=Retail, B=Broker, C=Correspondent")
@@ -184,26 +184,26 @@ def main():
                                             help="P=Primary, S=Second, I=Investor")
             property_state = st.selectbox("State", US_STATES,
                                           index=US_STATES.index("CA"))
-            hltv_refi_option = st.selectbox("High-LTV Refi Option", ["N", "Y"], index=0)
+            hltv_refi_option = st.selectbox("High LTV Refi Option", ["N", "Y"], index=0)
         with c3:
             first_time_buyer = st.checkbox("First-time buyer", value=False)
             modified = st.checkbox("Modified", value=False)
             in_forbearance = st.checkbox("In forbearance", value=False)
             has_deferral = st.checkbox("Has deferral", value=False)
             has_ppm = st.checkbox("Has prepayment penalty", value=False)
-            is_io = st.checkbox("Interest-only", value=False)
-            is_high_bal = st.checkbox("High-balance conforming", value=False)
+            is_io = st.checkbox("Interest only", value=False)
+            is_high_bal = st.checkbox("High balance conforming", value=False)
 
     # Yield Curve
     with st.expander("Yield Curve (edit tenors/rates)", expanded=False):
         col1, col2 = st.columns(2)
         with col1:
             tenors_str = st.text_input(
-                "Tenors (years, comma-separated)",
+                "Tenors (years)",
                 "0.5, 1, 2, 3, 5, 7, 10, 20, 30")
         with col2:
             rates_str = st.text_input(
-                "Rates (decimal, comma-separated)",
+                "Rates (float)",
                 "0.0369, 0.0364, 0.0371, 0.0372, 0.0384, 0.0404, 0.0426, 0.0485, 0.0488")
         tenors = [float(x.strip()) for x in tenors_str.split(",")]
         rates = [float(x.strip()) for x in rates_str.split(",")]
