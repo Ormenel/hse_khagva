@@ -48,7 +48,7 @@ If you have PyCharm just play in `docker-compose.yml`
 
 ### Source
 
-**FSingle-Family Historical Loan Performance Dataset** — dataset contains a subset of Fannie Mae's 30-year and less, fully amortizing, full documentation, single-family, conventional fixed-rate mortgages.
+**Single-Family Historical Loan Performance Dataset** - dataset contains a subset of Fannie Mae's 30-year and less, fully amortizing, full documentation, single-family, conventional fixed-rate mortgages.
 (https://capitalmarkets.fanniemae.com/credit-risk-transfer/single-family-credit-risk-transfer/fannie-mae-single-family-loan-performance-data)
 
 **FRED GS10** - 10-year Treasury par yield is joined as an exogenous feature and used for computing refinancing incentive signals.
