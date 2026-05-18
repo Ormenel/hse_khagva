@@ -16,6 +16,9 @@ US_STATES = [
     "VA","WA","WV","WI","WY","DC",
 ]
 
+DEFAULT_TENORS = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 20, 30]
+DEFAULT_RATES = [0.045, 0.046, 0.047, 0.048, 0.048,
+                 0.047, 0.046, 0.045, 0.043, 0.042]
 
 def _try_api(payload: dict):
 
@@ -38,6 +41,26 @@ def _fetch_loaded_models():
     except requests.RequestException:
         pass
     return AVAILABLE_MODELS
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_latest_par_curve():
+    try:
+        r = requests.get(f"{API_URL}/oas/par_curve/latest", timeout=15)
+        if r.status_code == 200:
+            d = r.json()
+            return d.get("date"), d["tenors"], d["rates"]
+    except requests.RequestException:
+        pass
+    return None, DEFAULT_TENORS, DEFAULT_RATES
+
+
+def _fmt_tenor(t: float) -> str:
+    return f"{int(t)}" if float(t).is_integer() else f"{t:g}"
+
+
+def _fmt_rate(r: float) -> str:
+    return f"{r:.4f}"
 
 
 def _plot_rate_paths(times, paths, mean, p05, p95):
@@ -133,6 +156,8 @@ def main():
     loaded_models = _fetch_loaded_models() or AVAILABLE_MODELS
     default_idx = loaded_models.index("xgb") if "xgb" in loaded_models else 0
 
+    curve_date, default_tenors, default_rates = _fetch_latest_par_curve()
+
     # Sidebar
     with st.sidebar:
         st.header("Model")
@@ -195,16 +220,29 @@ def main():
             is_high_bal = st.checkbox("High balance conforming", value=False)
 
     # Yield Curve
-    with st.expander("Yield Curve (edit tenors/rates)", expanded=False):
+    curve_label = "Yield Curve (edit tenors/rates)"
+    if curve_date:
+        curve_label += f" — US Treasury par, {curve_date}"
+    with st.expander(curve_label, expanded=False):
+        if curve_date:
+            st.caption(
+                f"Pre-filled from US Treasury par yield curve ({curve_date})."
+            )
+        else:
+            st.caption(
+                "Treasury feed unavailable"
+            )
         col1, col2 = st.columns(2)
         with col1:
             tenors_str = st.text_input(
-                "Tenors (years)",
-                "0.5, 1, 2, 3, 5, 7, 10, 20, 30")
+                "Tenors, years",
+                ", ".join(_fmt_tenor(t) for t in default_tenors),
+            )
         with col2:
             rates_str = st.text_input(
-                "Rates (float)",
-                "0.0369, 0.0364, 0.0371, 0.0372, 0.0384, 0.0404, 0.0426, 0.0485, 0.0488")
+                "Rates",
+                ", ".join(_fmt_rate(r) for r in default_rates),
+            )
         tenors = [float(x.strip()) for x in tenors_str.split(",")]
         rates = [float(x.strip()) for x in rates_str.split(",")]
 
