@@ -16,6 +16,8 @@ US_STATES = [
     "VA","WA","WV","WI","WY","DC",
 ]
 
+DEFAULT_TENORS = [0.5, 1, 2, 3, 5, 7, 10, 20, 30]
+DEFAULT_RATES = [0.046, 0.047, 0.048, 0.048, 0.047, 0.046, 0.045, 0.043, 0.042]
 
 def _try_api(payload: dict):
 
@@ -40,6 +42,26 @@ def _fetch_loaded_models():
     return AVAILABLE_MODELS
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_latest_par_curve():
+    try:
+        r = requests.get(f"{API_URL}/oas/par_curve/latest", timeout=15)
+        if r.status_code == 200:
+            d = r.json()
+            return d.get("date"), d["tenors"], d["rates"]
+    except requests.RequestException:
+        pass
+    return None, DEFAULT_TENORS, DEFAULT_RATES
+
+
+def _fmt_tenor(t: float) -> str:
+    return f"{int(t)}" if float(t).is_integer() else f"{t:g}"
+
+
+def _fmt_rate(r: float) -> str:
+    return f"{r:.4f}"
+
+
 def _plot_rate_paths(times, paths, mean, p05, p95):
 
     fig = go.Figure()
@@ -50,8 +72,9 @@ def _plot_rate_paths(times, paths, mean, p05, p95):
             x=list(times) + list(times)[::-1],
             y=[r * 100 for r in p95] + [r * 100 for r in p05][::-1],
             fill="toself",
-            fillcolor="rgba(52,152,219,0.12)",
-            line=dict(color="rgba(255,255,255,0)"),
+            fillcolor="lightblue",
+            opacity=0.25,
+            line=dict(color="white"),
             name="5–95% band",
             hoverinfo="skip",
         ))
@@ -61,7 +84,8 @@ def _plot_rate_paths(times, paths, mean, p05, p95):
         fig.add_trace(go.Scatter(
             x=times, y=[r * 100 for r in path],
             mode="lines",
-            line=dict(color="rgba(52,152,219,0.25)", width=1),
+            line=dict(color="steelblue", width=1),
+            opacity=0.30,
             name="Sampled path",
             showlegend=(i == 0),
             hoverinfo="skip",
@@ -72,7 +96,7 @@ def _plot_rate_paths(times, paths, mean, p05, p95):
         fig.add_trace(go.Scatter(
             x=times, y=[r * 100 for r in mean],
             mode="lines",
-            line=dict(color="#e74c3c", width=2.5),
+            line=dict(color="red", width=2.5),
             name="Mean",
         ))
 
@@ -93,7 +117,7 @@ def _plot_yield_curve(tenors, rates):
     fig.add_trace(go.Scatter(
         x=tenors, y=[r * 100 for r in rates],
         mode="lines+markers", name="Zero Curve",
-        line=dict(color="#3498db", width=2),
+        line=dict(color="blue", width=2),
     ))
     fig.update_layout(
         title="Input Yield Curve",
@@ -112,7 +136,7 @@ def _plot_cpr_curve(cpr_months, cpr_curve):
         y=[v * 100 for v in cpr_curve],
         mode="lines",
         name="CPR (avg-path)",
-        line=dict(color="#e74c3c", width=2.5),
+        line=dict(color="blue", width=2.5),
     ))
     fig.update_layout(
         title="CPR by Month (Hull-White Average-Rate Path)",
@@ -128,10 +152,12 @@ def _plot_cpr_curve(cpr_months, cpr_curve):
 def main():
     st.set_page_config(page_title="OAS Calculator", layout="wide")
     st.title("Option-Adjusted Spread Calculator")
-    st.caption("Monte Carlo simulation with Hull-White 1-Factor Model")
+    st.caption("Monte Carlo simulation with Hull-White Model")
 
     loaded_models = _fetch_loaded_models() or AVAILABLE_MODELS
     default_idx = loaded_models.index("xgb") if "xgb" in loaded_models else 0
+
+    curve_date, default_tenors, default_rates = _fetch_latest_par_curve()
 
     # Sidebar
     with st.sidebar:
@@ -195,16 +221,29 @@ def main():
             is_high_bal = st.checkbox("High balance conforming", value=False)
 
     # Yield Curve
-    with st.expander("Yield Curve (edit tenors/rates)", expanded=False):
+    curve_label = "Yield Curve (edit tenors/rates)"
+    if curve_date:
+        curve_label += f" — US Treasury par, {curve_date}"
+    with st.expander(curve_label, expanded=False):
+        if curve_date:
+            st.caption(
+                f"Pre-filled from US Treasury par yield curve ({curve_date})."
+            )
+        else:
+            st.caption(
+                "Treasury feed unavailable"
+            )
         col1, col2 = st.columns(2)
         with col1:
             tenors_str = st.text_input(
-                "Tenors (years)",
-                "0.5, 1, 2, 3, 5, 7, 10, 20, 30")
+                "Tenors, years",
+                ", ".join(_fmt_tenor(t) for t in default_tenors),
+            )
         with col2:
             rates_str = st.text_input(
-                "Rates (float)",
-                "0.0369, 0.0364, 0.0371, 0.0372, 0.0384, 0.0404, 0.0426, 0.0485, 0.0488")
+                "Rates",
+                ", ".join(_fmt_rate(r) for r in default_rates),
+            )
         tenors = [float(x.strip()) for x in tenors_str.split(",")]
         rates = [float(x.strip()) for x in rates_str.split(",")]
 
