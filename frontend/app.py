@@ -16,9 +16,8 @@ US_STATES = [
     "VA","WA","WV","WI","WY","DC",
 ]
 
-DEFAULT_TENORS = [0.25, 0.5, 1, 2, 3, 5, 7, 10, 20, 30]
-DEFAULT_RATES = [0.045, 0.046, 0.047, 0.048, 0.048,
-                 0.047, 0.046, 0.045, 0.043, 0.042]
+DEFAULT_TENORS = [0.5, 1, 2, 3, 5, 7, 10, 20, 30]
+DEFAULT_RATES = [0.046, 0.047, 0.048, 0.048, 0.047, 0.046, 0.045, 0.043, 0.042]
 
 def _try_api(payload: dict):
 
@@ -73,8 +72,9 @@ def _plot_rate_paths(times, paths, mean, p05, p95):
             x=list(times) + list(times)[::-1],
             y=[r * 100 for r in p95] + [r * 100 for r in p05][::-1],
             fill="toself",
-            fillcolor="rgba(52,152,219,0.12)",
-            line=dict(color="rgba(255,255,255,0)"),
+            fillcolor="lightblue",
+            opacity=0.25,
+            line=dict(color="white"),
             name="5–95% band",
             hoverinfo="skip",
         ))
@@ -84,7 +84,8 @@ def _plot_rate_paths(times, paths, mean, p05, p95):
         fig.add_trace(go.Scatter(
             x=times, y=[r * 100 for r in path],
             mode="lines",
-            line=dict(color="rgba(52,152,219,0.25)", width=1),
+            line=dict(color="steelblue", width=1),
+            opacity=0.30,
             name="Sampled path",
             showlegend=(i == 0),
             hoverinfo="skip",
@@ -95,7 +96,7 @@ def _plot_rate_paths(times, paths, mean, p05, p95):
         fig.add_trace(go.Scatter(
             x=times, y=[r * 100 for r in mean],
             mode="lines",
-            line=dict(color="#e74c3c", width=2.5),
+            line=dict(color="red", width=2.5),
             name="Mean",
         ))
 
@@ -116,7 +117,7 @@ def _plot_yield_curve(tenors, rates):
     fig.add_trace(go.Scatter(
         x=tenors, y=[r * 100 for r in rates],
         mode="lines+markers", name="Zero Curve",
-        line=dict(color="#3498db", width=2),
+        line=dict(color="blue", width=2),
     ))
     fig.update_layout(
         title="Input Yield Curve",
@@ -135,7 +136,7 @@ def _plot_cpr_curve(cpr_months, cpr_curve):
         y=[v * 100 for v in cpr_curve],
         mode="lines",
         name="CPR (avg-path)",
-        line=dict(color="#e74c3c", width=2.5),
+        line=dict(color="blue", width=2.5),
     ))
     fig.update_layout(
         title="CPR by Month (Hull-White Average-Rate Path)",
@@ -151,7 +152,7 @@ def _plot_cpr_curve(cpr_months, cpr_curve):
 def main():
     st.set_page_config(page_title="OAS Calculator", layout="wide")
     st.title("Option-Adjusted Spread Calculator")
-    st.caption("Monte Carlo simulation with Hull-White 1-Factor Model")
+    st.caption("Monte Carlo simulation with Hull-White Model")
 
     loaded_models = _fetch_loaded_models() or AVAILABLE_MODELS
     default_idx = loaded_models.index("xgb") if "xgb" in loaded_models else 0

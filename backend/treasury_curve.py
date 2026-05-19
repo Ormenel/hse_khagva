@@ -17,7 +17,6 @@ CSV_URL = (
 )
 
 TENOR_COLS = [
-    (0.25, "3 Mo"),
     (0.5,  "6 Mo"),
     (1.0,  "1 Yr"),
     (2.0,  "2 Yr"),
@@ -38,7 +37,7 @@ class ParCurve:
 
 
 def fetch_latest_par_curve(timeout: float = 10.0,
-                           max_years_back: int = 2) -> ParCurve:
+                           max_years_back: int = 1) -> ParCurve:
     year = datetime.now(timezone.utc).year
     last_error = None
 
