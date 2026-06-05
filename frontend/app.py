@@ -285,7 +285,7 @@ def main():
     }
 
     # COMPUTE
-    if st.button("Compute OAS", type="primary", use_container_width=True):
+    if st.button("Compute OAS", type="primary", width='stretch'):
         with st.spinner(f"Running Monte Carlo simulation using '{model_name}'..."):
             result = _try_api(payload)
 
@@ -314,7 +314,7 @@ def main():
                     result.get("cpr_months", []),
                     result.get("cpr_curve_monthly", []),
                 ),
-                use_container_width=True,
+                width='stretch',
             )
 
         # Rate paths
@@ -327,12 +327,12 @@ def main():
                     result.get("rate_p05", []),
                     result.get("rate_p95", []),
                 ),
-                use_container_width=True,
+                width='stretch',
             )
 
         # Yield curve chart
         st.plotly_chart(_plot_yield_curve(tenors, rates),
-                        use_container_width=True)
+                        width='stretch')
 
 
 if __name__ == "__main__":
