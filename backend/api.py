@@ -20,8 +20,8 @@ log = logging.getLogger(__name__)
 
 # Нужно добавить HUll White model
 HW_A = 0.1273
-HW_SIGMA = 0.04
-#HW_SIGMA = 0.00836
+HW_SIGMA = 0.00836
+#HW_SIGMA = 0.04
 
 MODEL_DIR = os.getenv("MODEL_DIR", "/app/models/saved_models")
 
