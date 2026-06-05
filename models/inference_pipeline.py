@@ -1,4 +1,4 @@
-
+import warnings
 import json
 import logging
 import os
@@ -156,6 +156,12 @@ class PrepaymentModelInference:
         for col in self.num_feats + self.bin_feats:
             if col in df.columns:
                 df[col] = df[col].astype("float64")
-        X = self.preprocessor.transform(df)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="Found unknown categories",
+                category=UserWarning,
+            )
+            X = self.preprocessor.transform(df)
         probs = self.model.predict_proba(X)[:, 1]
         return self._correct(probs)
