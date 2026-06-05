@@ -284,10 +284,12 @@ def compute_oas_ml(
         max_iter=max_iter,
     )
     oas_expected_rate = rate_no_pp_expected - rate_with_pp_expected
-    oas_unexpected_rate = oas_rate - oas_expected_rate
     oas_bps = round(oas_rate * 10_000, 2)
     oas_expected_bps = round(oas_expected_rate * 10_000, 2)
     oas_unexpected_bps = round(oas_bps - oas_expected_bps, 2)
+    if oas_unexpected_bps < 0:
+        oas_unexpected_bps = 0.0
+        oas_expected_bps = oas_bps
 
     # WAL / CPR aggregates
     total_principal = np.sum(principal, axis=1)
