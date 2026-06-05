@@ -12,6 +12,7 @@ from .schemas import (
 from .hull_white import HullWhiteParams, YieldCurve
 from .cashflow_engine import LoanParams
 from .oas_calculator import compute_oas_ml
+from .treasury_curve import fetch_latest_par_curve
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s")
@@ -86,6 +87,24 @@ def defaults():
         "market_price": 100.0,
         "n_paths": 500,
         "seed": 42,
+    }
+
+
+@app.get("/oas/par_curve/latest")
+def par_curve_latest():
+    try:
+        curve = fetch_latest_par_curve()
+    except Exception as exc:
+        log.warning("Treasury par curve unavailable: %s", exc)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Treasury par curve unavailable: {exc}",
+        )
+    return {
+        "date": curve.date,
+        "tenors": curve.tenors,
+        "rates": curve.rates,
+        "source": "home.treasury.gov",
     }
 
 

@@ -5,11 +5,11 @@ from typing import List
 
 class YieldCurveInput(BaseModel):
     tenors: List[float] = Field(
-        default=[0.25, 0.5, 1, 2, 3, 5, 7, 10, 20, 30],
+        default=[0.5, 1, 2, 3, 5, 7, 10, 20, 30],
         description="Maturities in years",
     )
     rates: List[float] = Field(
-        default=[0.045, 0.046, 0.047, 0.048, 0.048, 0.047, 0.046, 0.045, 0.043, 0.042],
+        default=[0.046, 0.047, 0.048, 0.048, 0.047, 0.046, 0.045, 0.043, 0.042],
         description="Par yields on US Treasury",
     )
 
